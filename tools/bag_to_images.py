@@ -8,6 +8,7 @@
 
 import os
 import argparse
+import numpy as np
 
 import cv2
 
@@ -29,8 +30,29 @@ def main():
     bag = rosbag.Bag(args.bag_file, "r")
     bridge = CvBridge()
     count = 0
+    img_format = 'png'
+
     for topic, msg, t in bag.read_messages(topics=[args.image_topic]):
-        cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+
+        if hasattr(msg, 'format') and 'compressed' in msg.format:
+
+            buf = np.ndarray(shape=(1, len(msg.data)), dtype=np.uint8, buffer=msg.data)
+            cv_img = cv2.imdecode(buf, cv2.IMREAD_ANYCOLOR)
+
+            if cv_img.shape[2] != 3:
+                print("Invalid image")
+                return
+
+            # Avoid re-encoding if we don't have to
+            #if check_image_format(msg.data) == self.write_img_format:
+            #    encoded = buf
+            #else:
+            #_, encoded = cv2.imencode('.' + img_format, cv_img)
+
+        else:
+            #cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+            #_, encoded = cv2.imencode('.' + img_format, cv_img)
 
         cv2.imwrite(os.path.join(args.output_dir, "frame%06i.png" % count), cv_img)
         print "Wrote image %i" % count
